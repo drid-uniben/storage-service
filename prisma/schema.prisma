@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id               String            @id @default(cuid())
+  name             String
+  createdAt        DateTime          @default(now())
+  apiKeys          ApiKey[]
+  storageObjects   StorageObject[]
+  webhookEndpoints WebhookEndpoint[]
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  keyHash   String   @unique
+  accountId String
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model StorageObject {
+  id           String            @id @default(cuid())
+  accountId    String
+  objectKey    String
+  sourceUrl    String
+  contentType  String?
+  sizeBytes    Int?
+  status       ObjectStatus      @default(queued)
+  providerUsed String?
+  storedUrl    String?
+  createdAt    DateTime          @default(now())
+  attempts     ProviderAttempt[]
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model ProviderAttempt {
+  id              String        @id @default(cuid())
+  storageObjectId String
+  provider        String
+  status          AttemptStatus
+  errorMessage    String?
+  createdAt       DateTime      @default(now())
+
+  storageObject StorageObject @relation(fields: [storageObjectId], references: [id], onDelete: Cascade)
+
+  @@index([storageObjectId])
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  accountId String
+  url       String
+  secret    String
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+enum ObjectStatus {
+  queued
+  stored
+  failed
+}
+
+enum AttemptStatus {
+  stored
+  failed
+}
