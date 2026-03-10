@@ -1,6 +1,6 @@
 # Storage Abstraction Service
 
-API-first, provider-agnostic object storage backend built with NestJS, TypeScript, PostgreSQL (Prisma), and Redis (BullMQ).
+API-first object storage backend built with modular Express, TypeScript, PostgreSQL (Prisma), and VPS-mounted disk storage.
 
 ## Setup
 
@@ -34,17 +34,28 @@ pnpm prisma:migrate
 pnpm start:dev
 ```
 
+## Required Env
+
+- `DATABASE_URL` PostgreSQL connection string
+- `STORAGE_ROOT` absolute path where files are written (default: `/data/storage`)
+- `API_KEY_RATE_LIMIT_PER_MINUTE` set `0` to disable rate limiting
+
+## Optional Dev Env
+
+- `SHADOW_DATABASE_URL` only needed for Prisma development migrations (`prisma migrate dev`)
+
+Redis is not required in the current architecture.
+
 ## Core Endpoints
 
 - `POST /auth/keys` create an account + API key
-- `POST /objects/store` queue object storage (requires `x-api-key`)
+- `POST /objects/store` queue object storage to local disk (requires `x-api-key`)
 - `GET /objects/:id` check object status (requires `x-api-key`)
 - `POST /webhooks` register webhook endpoint (requires `x-api-key`)
 
 ## Architecture Highlights
 
-- Provider abstraction via `StorageProvider` interface
-- Queue-based processing via BullMQ
-- Retry + failover strategy in `StorageProcessor` (3 attempts per provider)
-- Hashed API key auth + per-key Redis rate limit
-- Provider attempt logging and webhook event emission
+- Modular structure with route/service/middleware separation
+- Asynchronous background processing to a mounted disk path (`STORAGE_ROOT`)
+- Hashed API key auth + in-memory rate limit
+- Storage attempt logging and webhook event emission

@@ -1,26 +1,35 @@
-import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { createApp } from './app';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+async function bootstrap(): Promise<void> {
+  const { app, prisma, config } = await createApp();
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+  const server = app.listen(config.port, () => {
+    console.log(`Storage service listening on port ${config.port}`);
+    console.log(`Storage root: ${config.storageRoot}`);
+  });
 
-  app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new RequestLoggingInterceptor());
+  let isShuttingDown = false;
 
-  const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
+  const shutdown = async (signal: string) => {
+    if (isShuttingDown) {
+      return;
+    }
+
+    isShuttingDown = true;
+    console.log(`Received ${signal}, shutting down...`);
+
+    server.close();
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
+
+  process.on('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
 }
 
 void bootstrap();
